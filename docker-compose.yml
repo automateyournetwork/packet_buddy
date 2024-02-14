@@ -3,11 +3,15 @@ version: '3'
  
 services:
   packet_buddy:
-    image: johncapobianco/packet_buddy:packet_buddy    
+    image: johncapobianco/packet_buddy:packet_buddy
+    container_name: packet_buddy
+    restart: always        
     build: 
       context: ./
       dockerfile: ./docker/Dockerfile
     ports:
       - "8505:8505"
     volumes:
-      - ./config.toml:/root/.streamlit/config.toml      
+      - ./config.toml:/root/.streamlit/config.toml
+    networks:
+      - all-plugins-nginx-proxy_app_network  
