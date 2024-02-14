@@ -14,4 +14,9 @@ services:
     volumes:
       - ./config.toml:/root/.streamlit/config.toml
     networks:
-      - all-plugins-nginx-proxy_app_network  
+      - all-plugins-nginx-proxy_app_network
+
+networks:
+  all-plugins-nginx-proxy_app_network:
+    external: true
+    driver: bridge
