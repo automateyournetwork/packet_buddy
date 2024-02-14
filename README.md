@@ -14,5 +14,5 @@ OPENAI_API_KEY="<your openapi api key>"
 docker-compose up 
 
 ## Visit localhost
-http://localhost:8501
+http://localhost:8505
 

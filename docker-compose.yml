@@ -8,4 +8,6 @@ services:
       context: ./
       dockerfile: ./docker/Dockerfile
     ports:
-      - "8501:8501"
+      - "8505:8505"
+    volumes:
+      - ./config.toml:/root/.streamlit/config.toml      
