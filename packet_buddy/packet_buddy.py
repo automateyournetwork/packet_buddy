@@ -74,7 +74,7 @@ class ChatWithPCAP:
 
 # Function to convert pcap to JSON
 def pcap_to_json(pcap_path, json_path):
-    command = f'tshark -r {pcap_path} -T json > {json_path}'
+    command = f'tshark -nlr {pcap_path} -T json > {json_path}'
     subprocess.run(command, shell=True)
 
 # Streamlit UI for uploading and converting pcap file
