@@ -26,6 +26,36 @@ class AIMessage(Message):
     """Represents a message from the AI."""
     pass
 
+# Function to generate priming text based on pcap data
+def returnSystemText(pcap_data: str) -> str:
+    PACKET_WHISPERER = f"""
+        You are a helper assistant specialized in analysing packet captures used for troubleshooting & technical analysis. Use the information present in packet_capture_info to answer all the questions truthfully. If the user asks about a specific application layer protocol, use the following hints to inspect the packet_capture_info to answer the question. Format your response in markdown text with line breaks & emojis.
+
+        hints :
+        http means tcp.port = 80
+        https means tcp.port = 443
+        snmp means udp.port = 161 or udp.port = 162
+        ntp means udp.port = 123
+        ftp means tcp.port = 21
+        ssh means tcp.port = 22
+        BGP means tcp.port = 179
+        OSPF uses IP protocol 89 (not TCP/UDP port-based, but rather directly on top of IP)
+        MPLS doesn't use a TCP/UDP port as it's a data-carrying mechanism for high-performance telecommunications networks
+        DNS means udp.port = 53 (also tcp.port = 53 for larger queries or zone transfers)s
+        DHCP uses udp.port = 67 for the server and udp.port = 68 for the client
+        SMTP means tcp.port = 25 (for email sending)
+        POP3 means tcp.port = 110 (for email retrieval)
+        IMAP means tcp.port = 143 (for email retrieval, with more features than POP3)
+        HTTPS means tcp.port = 443 (secure web browsing)
+        LDAP means tcp.port = 389 (for accessing and maintaining distributed directory information services over an IP network)
+        LDAPS means tcp.port = 636 (secure version of LDAP)
+        SIP means tcp.port = 5060 or udp.port = 5060 (for initiating interactive user sessions involving multimedia elements such as video, voice, chat, gaming, etc.)
+        RTP (Real-time Transport Protocol) doesn't have a fixed port but is commonly used in conjunction with SIP for the actual data transfer of audio and video streams.
+
+        packet_capture_info : {pcap_data}
+    """
+    return PACKET_WHISPERER
+
 # Define a class for chatting with pcap data
 class ChatWithPCAP:
     def __init__(self, json_path):
@@ -36,6 +66,7 @@ class ChatWithPCAP:
         self.store_in_chroma()
         self.setup_conversation_memory()
         self.setup_conversation_retrieval_chain()
+        self.priming_text = self.generate_priming_text()
 
     def load_json(self):
         self.loader = JSONLoader(
@@ -65,10 +96,14 @@ class ChatWithPCAP:
         self.llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
         self.qa = ConversationalRetrievalChain.from_llm(self.llm, self.vectordb.as_retriever(search_kwargs={"k": 10}), memory=self.memory)
 
+    def generate_priming_text(self):
+        pcap_summary = " ".join([str(page) for page in self.pages[:5]])
+        return returnSystemText(pcap_summary)
+
     def chat(self, question):
-        response = self.qa.invoke(question)
+        primed_question = self.priming_text + "\n\n" + question
+        response = self.qa.invoke(primed_question)  # Use primed_question instead of just question
         self.conversation_history.append(HumanMessage(content=question))
-        # Simulating response handling; adjust according to actual response structure
         self.conversation_history.append(AIMessage(content=response.get('answer', 'Response not structured as expected.')))
         return response
 
