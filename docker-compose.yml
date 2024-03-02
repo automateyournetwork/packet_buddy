@@ -8,8 +8,8 @@ services:
     restart: always        
     build: 
       context: ./
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./docker/Dockerfile   
     ports:
-      - "8505:8505"
+      - "8505:8505"     
     volumes:
       - ./config.toml:/root/.streamlit/config.toml
