@@ -5,7 +5,9 @@ services:
   packet_buddy:
     image: johncapobianco/packet_buddy:packet_buddy
     container_name: packet_buddy
-    restart: always        
+    restart: always
+    environment:
+      - OPENAI_API_KEY="<your-key-here>"       
     build: 
       context: ./
       dockerfile: ./docker/Dockerfile   
