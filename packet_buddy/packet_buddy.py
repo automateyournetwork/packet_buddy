@@ -1,4 +1,5 @@
 import os
+import json
 import subprocess
 import streamlit as st
 from dotenv import load_dotenv
@@ -51,9 +52,8 @@ def returnSystemText(pcap_data: str) -> str:
         LDAPS means tcp.port = 636 (secure version of LDAP)
         SIP means tcp.port = 5060 or udp.port = 5060 (for initiating interactive user sessions involving multimedia elements such as video, voice, chat, gaming, etc.)
         RTP (Real-time Transport Protocol) doesn't have a fixed port but is commonly used in conjunction with SIP for the actual data transfer of audio and video streams.
-
-        packet_capture_info : {pcap_data}
     """
+    # Might be redundant - pcap data - alraedy doing rag - less tokens
     return PACKET_WHISPERER
 
 # Define a class for chatting with pcap data
@@ -89,7 +89,7 @@ class ChatWithPCAP:
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
     def setup_conversation_retrieval_chain(self):
-        self.llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
+        self.llm = ChatOpenAI(temperature=0.7, model="gpt-4-1106-preview")
         self.qa = ConversationalRetrievalChain.from_llm(self.llm, self.vectordb.as_retriever(search_kwargs={"k": 10}), memory=self.memory)
 
     def generate_priming_text(self):
@@ -97,11 +97,126 @@ class ChatWithPCAP:
         return returnSystemText(pcap_summary)
 
     def chat(self, question):
+        # Combine the original question with the priming text
         primed_question = self.priming_text + "\n\n" + question
-        response = self.qa.invoke(primed_question)  # Use primed_question instead of just question
-        self.conversation_history.append(HumanMessage(content=question))
-        self.conversation_history.append(AIMessage(content=response.get('answer', 'Response not structured as expected.')))
-        return response
+
+        # Generate related queries based on the primed question
+        related_queries_dicts = self.generate_related_queries(primed_question)
+        related_queries = [q['query'] for q in related_queries_dicts]
+
+        # Priming each related query individually
+        primed_related_queries = [(self.priming_text + "\n\n" + rq) for rq in related_queries]
+
+        # Include the initially primed question as the first query
+        queries = [primed_question] + primed_related_queries
+
+        all_results = []
+
+        for query_text in queries:
+            st.write(query_text)
+            response = None
+            if self.llm:
+                response = self.qa.invoke(query_text)
+            elif self.llm_anthropic:
+                response = self.anthropic_qa.invoke(query_text)
+
+            if response:
+                all_results.append({'query': query_text, 'answer': response['answer']})
+                st.write("Query:", query_text)
+                st.write("Response:", response['answer'])
+
+        # After gathering all results, let's ask the LLM to synthesize a comprehensive answer
+        if all_results:
+            # Assuming reciprocal_rank_fusion is correctly applied and scored_results is prepared
+            reranked_results = self.reciprocal_rank_fusion(all_results)
+            # Prepare scored_results, ensuring it has the correct structure
+            scored_results = [{'score': res['score'], **res['doc']} for res in reranked_results]
+            synthesis_prompt = self.create_synthesis_prompt(question, scored_results)
+            synthesized_response = self.llm.invoke(synthesis_prompt)
+            
+            if synthesized_response:
+                # Assuming synthesized_response is an AIMessage object with a 'content' attribute
+                st.write(synthesized_response)
+                final_answer = synthesized_response.content
+            else:
+                final_answer = "Unable to synthesize a response."
+            
+            # Update conversation history with the original question and the synthesized answer
+            self.conversation_history.append(HumanMessage(content=question))
+            self.conversation_history.append(AIMessage(content=final_answer))
+
+            return {'answer': final_answer}
+        else:
+            self.conversation_history.append(HumanMessage(content=question))
+            self.conversation_history.append(AIMessage(content="No answer available."))
+            return {'answer': "No results were available to synthesize a response."}
+
+    def create_synthesis_prompt(self, original_question, all_results):
+        # Sort the results based on RRF score if not already sorted; highest scores first
+        sorted_results = sorted(all_results, key=lambda x: x['score'], reverse=True)
+        st.write("Sorted Results", sorted_results)
+        prompt = f"Based on the user's original question: '{original_question}', here are the answers to the original and related questions, ordered by their relevance (with RRF scores). Please synthesize a comprehensive answer focusing on answering the original question using all the information provided below:\n\n"
+        
+        # Include RRF scores in the prompt, and emphasize higher-ranked answers
+        for idx, result in enumerate(sorted_results):
+            prompt += f"Answer {idx+1} (Score: {result['score']}): {result['answer']}\n\n"
+        
+        prompt += "Given the above answers, especially considering those with higher scores, please provide the best possible composite answer to the user's original question."
+        
+        return prompt
+
+    def generate_related_queries(self, primed_question):
+        prompt = f"In light of the original inquiry: '{primed_question}', let's delve deeper and broaden our exploration. Please construct a JSON array containing four distinct but interconnected search queries. Each query should reinterpret the original prompt's essence, introducing new dimensions or perspectives to investigate. Aim for a blend of complexity and specificity in your rephrasings, ensuring each query unveils different facets of the original question. This approach is intended to encapsulate a more comprehensive understanding and generate the most insightful answers possible. Only respond with the JSON array itself."
+        response = self.llm.invoke(input=prompt)
+
+        if hasattr(response, 'content'):
+            # Directly access the 'content' if the response is the expected object
+            generated_text = response.content
+        elif isinstance(response, dict) and 'content' in response:
+            # Extract 'content' if the response is a dict
+            generated_text = response['content']
+        else:
+            # Fallback if the structure is different or unknown
+            generated_text = str(response)
+            st.error("Unexpected response format.")
+
+        st.write("Response content:", generated_text)
+
+        # Assuming the 'content' starts with "content='" and ends with "'"
+        # Attempt to directly parse the JSON part, assuming no other wrapping
+        try:
+            json_start = generated_text.find('[')
+            json_end = generated_text.rfind(']') + 1
+            json_str = generated_text[json_start:json_end]
+            related_queries = json.loads(json_str)
+            st.write("Parsed related queries:", related_queries)
+        except (ValueError, json.JSONDecodeError) as e:
+            st.error(f"Failed to parse JSON: {e}")
+            related_queries = []
+
+        return related_queries
+
+    def retrieve_documents(self, query):
+        # Example: Convert query to embeddings and perform a vector search in ChromaDB
+        query_embedding = OpenAIEmbeddings()  # Assuming SemanticChunker can embed text
+        search_results = self.vectordb.search(query_embedding, top_k=5)  # Adjust based on your setup
+        document_ids = [result['id'] for result in search_results]  # Extract document IDs from results
+        return document_ids
+    
+    def reciprocal_rank_fusion(self, all_results, k=60):
+        # Assuming each result in all_results can be uniquely identified for scoring
+        # And assuming all_results is directly the list you want to work with
+        fused_scores = {}
+        for result in all_results:
+            # Let's assume you have a way to uniquely identify each result; for simplicity, use its index
+            doc_id = result['query']  # or any unique identifier within each result
+            if doc_id not in fused_scores:
+                fused_scores[doc_id] = {"doc": result, "score": 0}
+            # Example scoring adjustment; this part needs to be aligned with your actual scoring logic
+            fused_scores[doc_id]["score"] += 1  # Simplified; replace with actual scoring logic
+
+        reranked_results = sorted(fused_scores.values(), key=lambda x: x["score"], reverse=True)
+        return reranked_results
 
 # Function to convert pcap to JSON
 def pcap_to_json(pcap_path, json_path):
@@ -139,7 +254,7 @@ def chat_interface():
     if user_input and st.button("Send"):
         with st.spinner('Thinking...'):
             response = st.session_state['chat_instance'].chat(user_input)
-            st.markdown("**Answer:**")
+            st.markdown("**Synthesized Answer:**")
             if isinstance(response, dict) and 'answer' in response:
                 st.markdown(response['answer'])
             else:
