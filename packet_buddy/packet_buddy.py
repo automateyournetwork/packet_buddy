@@ -1,5 +1,6 @@
 import os
 import json
+from langchain.load import dumps, loads
 import subprocess
 import streamlit as st
 from dotenv import load_dotenv
@@ -129,6 +130,7 @@ class ChatWithPCAP:
         if all_results:
             # Assuming reciprocal_rank_fusion is correctly applied and scored_results is prepared
             reranked_results = self.reciprocal_rank_fusion(all_results)
+            st.write(reranked_results)
             # Prepare scored_results, ensuring it has the correct structure
             scored_results = [{'score': res['score'], **res['doc']} for res in reranked_results]
             synthesis_prompt = self.create_synthesis_prompt(question, scored_results)
@@ -203,20 +205,16 @@ class ChatWithPCAP:
         document_ids = [result['id'] for result in search_results]  # Extract document IDs from results
         return document_ids
     
-    def reciprocal_rank_fusion(self, all_results, k=60):
-        # Assuming each result in all_results can be uniquely identified for scoring
-        # And assuming all_results is directly the list you want to work with
+    def reciprocal_rank_fusion(self, results, k=60):
         fused_scores = {}
-        for result in all_results:
-            # Let's assume you have a way to uniquely identify each result; for simplicity, use its index
-            doc_id = result['query']  # or any unique identifier within each result
-            if doc_id not in fused_scores:
-                fused_scores[doc_id] = {"doc": result, "score": 0}
-            # Example scoring adjustment; this part needs to be aligned with your actual scoring logic
-            fused_scores[doc_id]["score"] += 1  # Simplified; replace with actual scoring logic
+        for idx, item in enumerate(results):
+            answer_id = item['query']  # Assuming this is unique
+            if answer_id not in fused_scores:
+                fused_scores[answer_id] = {'score': 0, 'item': item}
+            fused_scores[answer_id]['score'] += 1 / (idx + 1 + k)
 
-        reranked_results = sorted(fused_scores.values(), key=lambda x: x["score"], reverse=True)
-        return reranked_results
+        reranked_items = sorted(fused_scores.values(), key=lambda x: x['score'], reverse=True)
+        return [{'score': item['score'], 'doc': item['item']} for item in reranked_items]  # Adjusted to include scores
 
 # Function to convert pcap to JSON
 def pcap_to_json(pcap_path, json_path):
