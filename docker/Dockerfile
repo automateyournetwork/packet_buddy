@@ -15,9 +15,8 @@ RUN echo "==> Install dos2unix..." \
   && sudo apt-get install dos2unix -y 
 
 RUN echo "==> Install langchain requirements.." \
-  && pip install -U --quiet langchain_experimental langchain langchain-openai langchain-community \
+  && pip install -U --quiet langchain_experimental langchain langchain-community \
   && pip install chromadb \
-  && pip install openai \
   && pip install tiktoken
 
 RUN echo "==> Install jq.." \
@@ -31,6 +30,12 @@ RUN apt-get update && apt-get install -y tshark
 
 RUN echo "==> Adding pyshark ..." \
   && pip install pyshark
+
+RUN echo "==> Adding requests ..." \
+  && pip install requests
+
+RUN echo "==> Adding Fast Embeddings ..." \
+  && pip install --upgrade --quiet  fastembed
 
 COPY /packet_buddy /packet_buddy/
 COPY /scripts /scripts/

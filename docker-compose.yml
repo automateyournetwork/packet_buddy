@@ -1,13 +1,46 @@
----
-version: '3'
- 
+version: '3.6'
+
+networks:
+  ollama:
+
 services:
+  ollama:
+    image: ollama/ollama
+    networks:
+      - ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    volumes:
+      - ./data/ollama:/root/.ollama
+    ports:
+      - 11434:11434
+
+  ollama-webui:
+    image: ghcr.io/ollama-webui/ollama-webui:main
+    volumes:
+      - ./data/ollama-webui:/app/backend/data
+    depends_on:
+      - ollama
+    ports:
+      - 3002:8080
+    environment:
+      - 'OLLAMA_API_BASE_URL=http://ollama:11434/api'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - ollama
+
   packet_buddy:
     image: johncapobianco/packet_buddy:packet_buddy
     container_name: packet_buddy
     restart: always
     environment:
-      - OPENAI_API_KEY="<your-key-here>"       
+      - OLLAMA_URL=http://ollama:11434
     build: 
       context: ./
       dockerfile: ./docker/Dockerfile   
@@ -15,3 +48,7 @@ services:
       - "8505:8505"     
     volumes:
       - ./config.toml:/root/.streamlit/config.toml
+    depends_on:
+      - ollama
+    networks:
+      - ollama       
