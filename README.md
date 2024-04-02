@@ -5,31 +5,17 @@ pcap analysis provided by chatGPT 4 Turbo
 
 Clone the repo
 
-Make a .env file inside the packet_buddy folder (where the packet_buddy.py file is located)
-
-put this in the file:
-```console
-OPENAI_API_KEY="<your openapi api key>"
-```
-
 ## Bring up the server
 docker-compose up 
 
-## Visit localhost
-http://localhost:8505
-
-## Getting started
-
-Clone the repo
-
-## Bring up the server
-docker-compose up 
-
-## Visit Ollama WebUI 
+## Visit Ollama and download your model(s)
 http://localhost:3002
 
-## Download Your Models
-Using Ollama WebUI download your model(s)
+Gear / settings button
+
+Models
+
+Download phi, llama2, gemma, etc
 
 ## Start Packet Raptor
 http://localhost:8505
@@ -41,3 +27,4 @@ Upload your PCAP
 Pick Your Model
 Ask questions about the PCAP
 
+The tool will download the Instructor-XL model dynamically, be patient, the first time you launch it, in order to provide free open source embeddings

@@ -51,4 +51,11 @@ services:
     depends_on:
       - ollama
     networks:
-      - ollama       
+      - ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]         
