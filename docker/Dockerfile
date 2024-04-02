@@ -34,8 +34,9 @@ RUN echo "==> Adding pyshark ..." \
 RUN echo "==> Adding requests ..." \
   && pip install requests
 
-RUN echo "==> Adding Fast Embeddings ..." \
-  && pip install --upgrade --quiet  fastembed
+RUN echo "==> Adding InstructorEmbedding ..." \
+  && pip install -U sentence-transformers==2.2.2 \
+  && pip install InstructorEmbedding
 
 COPY /packet_buddy /packet_buddy/
 COPY /scripts /scripts/

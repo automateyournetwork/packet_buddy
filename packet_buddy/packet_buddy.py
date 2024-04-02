@@ -9,7 +9,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.document_loaders import JSONLoader
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings 
 
 # Message classes
 class Message:
@@ -56,6 +56,8 @@ def returnSystemText(pcap_data: str) -> str:
 # Define a class for chatting with pcap data
 class ChatWithPCAP:
     def __init__(self, json_path):
+        with st.spinner("Downloading Instructor XL Embeddings Model locally....please be patient"):
+            self.embedding=HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large", model_kwargs={"device": "cuda"})
         self.json_path = json_path
         self.conversation_history = []
         self.load_json()
@@ -74,13 +76,15 @@ class ChatWithPCAP:
         self.pages = self.loader.load_and_split()
 
     def split_into_chunks(self):
-        self.text_splitter = SemanticChunker(FastEmbedEmbeddings())
-        self.docs = self.text_splitter.split_documents(self.pages)
+        with st.spinner("Splitting into chunks..."):         
+            self.text_splitter = SemanticChunker(self.embedding)
+            self.docs = self.text_splitter.split_documents(self.pages)
 
     def store_in_chroma(self):
-        embeddings = FastEmbedEmbeddings()
-        self.vectordb = Chroma.from_documents(self.docs, embedding=embeddings)
-        self.vectordb.persist()
+        with st.spinner("Storing in Chroma..."):
+            # Now, pass this wrapper to Chroma.from_documents
+            self.vectordb = Chroma.from_documents(self.docs, self.embedding)
+            self.vectordb.persist()
 
     def setup_conversation_memory(self):
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
