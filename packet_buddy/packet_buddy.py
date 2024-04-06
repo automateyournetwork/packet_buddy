@@ -24,6 +24,12 @@ class AIMessage(Message):
     """Represents a message from the AI."""
     pass
 
+@st.cache_resource
+def load_model():
+    with st.spinner("Downloading Instructor XL Embeddings Model locally....please be patient"):
+        embedding_model=HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large", model_kwargs={"device": "cuda"})
+    return embedding_model
+
 # Function to generate priming text based on pcap data
 def returnSystemText(pcap_data: str) -> str:
     PACKET_WHISPERER = f"""
@@ -56,8 +62,7 @@ def returnSystemText(pcap_data: str) -> str:
 # Define a class for chatting with pcap data
 class ChatWithPCAP:
     def __init__(self, json_path):
-        with st.spinner("Downloading Instructor XL Embeddings Model locally....please be patient"):
-            self.embedding=HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large", model_kwargs={"device": "cuda"})
+        self.embedding_model = load_model()
         self.json_path = json_path
         self.conversation_history = []
         self.load_json()
@@ -77,13 +82,13 @@ class ChatWithPCAP:
 
     def split_into_chunks(self):
         with st.spinner("Splitting into chunks..."):         
-            self.text_splitter = SemanticChunker(self.embedding)
+            self.text_splitter = SemanticChunker(self.embedding_model)
             self.docs = self.text_splitter.split_documents(self.pages)
 
     def store_in_chroma(self):
         with st.spinner("Storing in Chroma..."):
             # Now, pass this wrapper to Chroma.from_documents
-            self.vectordb = Chroma.from_documents(self.docs, self.embedding)
+            self.vectordb = Chroma.from_documents(self.docs, self.embedding_model)
             self.vectordb.persist()
 
     def setup_conversation_memory(self):
