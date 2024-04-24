@@ -17,7 +17,7 @@ Models
 
 Download phi, llama2, gemma, etc
 
-## Start Packet Raptor
+## Start Packet Buddy
 http://localhost:8505
 
 ### Usage
