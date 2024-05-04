@@ -1,5 +1,5 @@
 # packet_buddy
-pcap analysis provided by chatGPT 4 Turbo
+pcap analysis provided by Ollama and the open source model of your choice!
 
 ## Getting started
 
