@@ -15,28 +15,28 @@ RUN echo "==> Install dos2unix..." \
   && sudo apt-get install dos2unix -y 
 
 RUN echo "==> Install langchain requirements.." \
-  && pip install -U --quiet langchain_experimental langchain langchain-community \
-  && pip install chromadb \
-  && pip install tiktoken
+  && pip install --break-system-packages -U --quiet langchain_experimental langchain langchain-community \
+  && pip install --break-system-packages chromadb \
+  && pip install --break-system-packages tiktoken
 
 RUN echo "==> Install jq.." \
-  && pip install jq
+  && pip install --break-system-packages jq
 
 RUN echo "==> Install streamlit.." \
-  && pip install streamlit --upgrade
+  && pip install --break-system-packages streamlit --upgrade
 
 # Install tshark
 RUN apt-get update && apt-get install -y tshark
 
 RUN echo "==> Adding pyshark ..." \
-  && pip install pyshark
+  && pip install --break-system-packages pyshark
 
 RUN echo "==> Adding requests ..." \
-  && pip install requests
+  && pip install --break-system-packages requests
 
 RUN echo "==> Adding InstructorEmbedding ..." \
-  && pip install -U sentence-transformers==2.2.2 \
-  && pip install InstructorEmbedding
+  && pip install --break-system-packages -U sentence-transformers==2.2.2 \
+  && pip install --break-system-packages InstructorEmbedding
 
 COPY /packet_buddy /packet_buddy/
 COPY /scripts /scripts/
